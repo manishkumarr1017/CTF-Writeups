@@ -60,9 +60,9 @@ LAB_00101216:
 }
 ```
 
-Again the binary has ```init()``` and standard ```add() edit() show() delete()``` functions for the binary.
+The binary has ```init()``` and standard functions such as ```add() edit() show() delete()``` are used like in any other heap challenge in CTF.
 
-Let's examine each function and find the vulnerabilities
+Let's examine each function and find the vulnerabilities.
 
 ```
 
@@ -85,7 +85,7 @@ int init(EVP_PKEY_CTX *ctx)
 }
 ```
 
-There is no vulnerabilities seen here it takes 16 bytes long input in the buffer of size 16 bytes.
+There are no vulnerabilities seen here. It takes 16 bytes long input in the buffer of size 16 bytes.
 
 ```
 
@@ -131,8 +131,7 @@ void add(void)
   return;
 }
 ```
-
-Here again it takes the index and size from the users. By dynamic analysis I found that the memcmp is checking whether the ```__malloc_hook``` got corrupted or not. If it gets corrupted then the program will exit. So we can't hook the malloc for getting the shell and it is also checking that the allocated chunk size's & 0xf should be either 0x0 (or) 0x1 else it exits. This check is to prevent the fast bin attack so we can't do the fast bin attack.
+It takes the index and size from the users. By dynamic analysis I found that the ```memcmp()``` is checking whether the ```__malloc_hook``` has got corrupted or not. If it gets corrupted then the program will exit. So we can't hook the malloc for getting the shell. It also checks that the allocated chunk size & 0xf should be either 0x0 (or) 0x1 else it exits. This check is to prevent the fast bin attacks.
 
 
 ```
@@ -162,7 +161,7 @@ long getValidIndex(void)
 ```
 
 
-Here, Takes the index from user and it sees if the index is greater than -1 and less than 4 and then it returns if the condtion is satisfied else exits. So we don't have any index bug here.
+This function takes the index from user and it should be greater than -1 and less than 4. So we don't have any index bug here.
 
 ```
 long getValidSize(void)
@@ -191,7 +190,7 @@ long getValidSize(void)
 }
 ```
 
-It only allocates the sizes of 0x0 to 0x80 and only one chunk can be allocated with the size greater than 0x80
+This function takes the  size as input and sees that the size is in the range 0x0 to 0x80. Only 1 chunk of size greater than 0x80 is allowed.
 
 ```
 void edit(void)
@@ -223,7 +222,7 @@ void edit(void)
 }
 ```
 
-Here we can edit the chunks as the chunks size are not stored there is overflow vulnerability as it is taking the size again from user input.
+Here we specify an index to a chunk, and it checks if it is a non-null pointer. It prompts us the amount of bytes to scan in for editing the chunk. This leads to heap overflow vulnerability. 
 
 ** There is a heap overflow vulnerability **
 
@@ -252,7 +251,7 @@ void show(void)
 }
 ```
 
-So it just takes the index and sees it is a valid index and just output's the given chunk contains. (So this function can be used for leaking libc address)
+This is a standard function where we specify an index to a chunk, and it checks if it is a non-null pointer.If so the function prints the chunk contents. (We can abuse this for getting leaks) 
 
 ```
 void delete(void)
@@ -290,19 +289,19 @@ void delete(void)
 }
 ``` 
 
-It takes the input for the index and checks the ```__free_hook``` is not corrupted and then frees the order and then clears all the pointers. So there is no UAF vulnerability.
+This function takes an input index and checks that if ```__free_hook``` is corrupted. If it is not, it frees the order and then makes all the pointers to 0. So there is no UAF vulnerability.
 
 So we just have a heap overflow vulnerability.
 
 
-## The attack vector is
+## The attack vector is:
 
 - First we need a heap leak and libc leak.
-- getting heap leak is easy just we have to free a chunk and use overflow to leak the heap leak
-- For getting the libc leak we have to overlap chunks. Created 4 chunks of size 0x60 and then using overflow change the size of chunk 2 to 0xe1 and then free it so now it thinks that the chunk size of 2 is the total chunk size of 2 and 3 now free it. This will go into unsorted bins. now allocate a new chunk of size 0x60 for which will overlap with chunk 3 and will have a libc address. After viewing the contents of chunk 3 we will have libc leak.
-- Now as we can allocate a chunk of size greater than 0x80. We can use this to perform house of force (or) house of orange.
-- I performed house of force for exploiting this program but house of orange can be used too
-- Now as the libc is 2.23 we can use this to change the vtable of stdout structure to point to system and stdout flags should contain "/bin/sh" and the forged vtable should contain system. (Although we can find the exact offset and overwrite that)
-- Allocate a chunk and fill out with address of the system and overwrite the vtable with this address and stdout flags with "/bin/sh" (We don't have to bother about the whole file structure just the ```_ IO_lock_t``` should point to writable memory address if so it is all good to go)
+- Getting heap leak is easy. We have to free a chunk and use overflow vulnerability to get the heap leak.
+- For getting the libc leak we have to overlap chunks. We have to create 4 chunks of size 0x60 and then we have to use overflow vulnerability for changing the size of chunk 2 to 0xe0. Then free the chunk 2. Now ```free``` thinks that the chunk 2 size is the total size of chunks 2 and 3 (which is 0xe0). This freed chunk will go into unsorted bins. Now allocate a new chunk of size 0x60 which will give a chunk at 2. We will have a libc address at the chunk 3 because the 0xe0 chunk got split into two chunks. 0x60 chunk is given when the malloc requested for it and the remaining chunk will still be in unsorted bin. After viewing the contents of chunk 3 we will have libc leak.
+- We can allocate only one chunk of size greater than 0x80. We can use this to perform house of force (or) house of orange.
+- I performed house of force but house of orange can also be performed.
+- As the libc version is 2.23 we can forge the vtable to point to system and stdout flags should contain "/bin/sh" for executing ```system("/bin/sh")``` and the forged vtable should contain system at a particular offset. (Although we can find the exact offset and overwrite that but I just filled out a chunk with the address of system)
+- Allocate a chunk and fill out the chunk with address of the system, overwrite the vtable with the address of the chunk and overwrite the stdout flags with "/bin/sh" (While overwriting values in the stdout structure, we don't have to bother about the whole file structure. we just have to take care of ```_ IO_lock_t``` which should point to a writable memory address and overwrite stdout flags and vtable for getting the shell.).
 
 - when the next puts is called we will get the shell
