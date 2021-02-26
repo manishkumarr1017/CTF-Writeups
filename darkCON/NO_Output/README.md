@@ -8,7 +8,7 @@ The libc has tcache enabled (not libc-2.32) and you don't require libc for this 
 connection: nc 13.233.166.242 49153
 ```
 
-So as the description says The binary doesn't give any output. No where in the binary we can see ant output related functions like puts, printf etc. So we don't have any way for getting the leak.
+So as the description says The binary doesn't give any output. No where in the binary we can see any output related functions like puts, printf etc. So we don't have any way for getting the leak.
 
 Let's check the binary protections:
 
@@ -20,7 +20,6 @@ Let's check the binary protections:
     PIE:      No PIE (0x400000)
 ``` 
 
-So we have NX and PIE enabled.
 
 
 By reversing the binary we get:
@@ -59,7 +58,7 @@ void main(void)
 }
 ```
 
-This is the ```main``` function. first it calls ```init()``` function then it takes an input from the user and if the user input is 1 it will call ```add()``` , else if user input is 2 it calls ```edit()``` , else if 3 it calls ```delete()``` else it exits.
+The binary has ```init()``` and standard functions such as ```add() edit() show() delete()``` are used like in any other heap challenges in CTF.
 
 Now we will check what does ```init()``` do
 
@@ -91,9 +90,9 @@ int init(EVP_PKEY_CTX *ctx)
 
 ```
 
-we can see here that a buffer of size 24 is declared but taking an input of size 72 (0x48) . So we clearly have an overflow vulnerability but we can't take the advantage of that (for now) because we have stack canary enabled.
+we can see here that a buffer is of size 24 is declared but taking an input of size 72 (0x48) . So we clearly have an overflow vulnerability but we can't take the advantage of that (for now) because we have stack canary enabled.
 
-So we can't exploit this overflow vulnerbility due to stack canary.
+So we can't exploit this overflow vulnerbility due to stack canary.(for now)
 
 Let's continue our reversing:
 
@@ -125,7 +124,7 @@ void add(void)
 }
 ```
 
-Here it allocates some memory at the index and size we have speciified and stores in global pointer ```chunks``` and the size is stored in ```chunks_len```
+Here it allocates a chunk at the index and size we speciified and stores the pointer in global pointer ```chunks``` and the size is stored in ```chunks_len```.
 
 ```
 
@@ -145,7 +144,7 @@ int getIndex(void)
 
 ```
 
-Here, Takes the index from user and it sees if the index is greater than -1 and less than 16 (0x10) and then it returns if the condtion is satisfied else exits. So we don't have any index bug here.
+This function takes the index from user and it should be greater than -1 and less than 16(0x10). So we don't have any index bug here.
 
 ```
 int getValidSize(void)
@@ -163,7 +162,7 @@ int getValidSize(void)
 }
 ```
 
-A similar code as above we can see that the size should be greater than -1 and less than 4097.
+This function takes the  ize as input and sees that the size is in the range 0x0 to 0x1001.If it is not present in the given range it exits.
 
 ```
 
@@ -193,7 +192,7 @@ void edit(void)
 }
 ```
 
-In this function it asks for index and checks that the ```chunks+index``` is allocated if yes it edits the chunk with the size of ```chunk_len``` and return else it exits.
+we specify an index to a chunk, and it checks if it is a non-null pointer. If so it allows us to edit the contents in the chunk.
 
 ```
 void delete(void)
@@ -210,16 +209,16 @@ void delete(void)
   exit(0);
 }
 ```
-Similarly above it asks for the index and deletes the chunk. So we have UAF vulnerability (use after free).
+Similarly above it asks for the index and frees the chunk. So we have UAF vulnerability (use after free).
 
-As the tcache of the libc is enabled we can use this to get the arbitary write previlege.
+As the libc has tcache we can use this to get the arbitary write previlege.
 
 So for getting arbitary write previlege we will be using tcache poisoning attack.
 
 ## The attack vector is:
 
 - Use the tcache poisoning attack for overwriting ```exit() to point init()``` and ```__stack_chk_fail() to leave;ret```
-- Then use the overflow present in init to perform ret2dlresolve attack to get the shell.
-- Here in my [exploit](./exploit.py) I have manually exploited without using inbuilt pwntools ret2dlresolve
-- I resolved free to get the system.
-- Atlast used free("/bin/sh") for getting the shell
+- Then use the overflow present in ```init()``` to perform ret2dlresolve attack to get the shell.
+- Here in my [exploit](./exploit.py) I have manually exploited without using inbuil ret2dlresolve present in pwntools.
+- I resolved ```free``` to  ```system```.
+- Atlast used free("/bin/sh") for getting the shell.

@@ -1,3 +1,3 @@
 ## TOO_MUCH
 
-This is basic angr challenge we can use a basic angr script to get the flag
+This is basic angr challenge.We can use this basic angr [script](./crack.py) to get the flag.

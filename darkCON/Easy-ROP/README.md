@@ -19,7 +19,7 @@ The security protections for this binary are:
     PIE:      No PIE (0x400000)
 ```
 
-As we can see NX enabled and about the canary, As the libc is statically linked and some of the libc functions present in the binary has canary enabled so the checksec shows that the canary enabled but after decompiling we can see that :
+As we can see NX is enabled. The libc is statically linked and some of the libc functions present in the binary will have the canary present in it, so the checksec shows that the canary is present for the given binary. Decompiling the given binary we can see that :
 
 ```
 
@@ -41,17 +41,17 @@ void main(void)
 ```
 The  ```__stack_chk_fail``` function is not present concluding there is no canary present in the main function.
 
-By decompiling the main it just uses ```gets()``` So we have a buffer overflow vulnerability. So we can change the **return address** to jump anywhere in the binary.
+By decompiling the main it just uses ```gets()``` function so we have a buffer overflow vulnerability. So we can change the **return address** to jump anywhere we want in the binary.
 
 
-As the given binary is statically linked we will have so many ROPGadgets which we can use to form a shell code using ROP.
+As the given binary is statically linked we will have so many ROPGadgets present in it. we can utilize these ROPgadgets to form a shellcode using ROP.
 
 ### So the attack vector is:
 
 - Just try to write ```/bin/sh``` in any writable section (preferably in .bss)
-- Then try to use syscall and execute the system("/bin/sh") to get the shell
+- Then try to use syscall and execute the execve("/bin/sh") to get the shell
 
-So for this I used these ROP gadgets for my exploit:
+I used these ROP gadgets:
 
 ```
 0x0000000000481e65 : mov qword ptr [rsi], rax ; ret
@@ -62,13 +62,13 @@ So for this I used these ROP gadgets for my exploit:
 0x00000000004012d3 : syscall
 ```
 
-- pop rax  ** "/bin/sh"
-- pop rsi  ** (address of bss)
-- mov qword ptr [rsi], rax ** so the starting address of bss contains the /bin/sh
-- pop rax,0x3b ** execve syscall
-- pop rdi ** bss (pointer to "/bin/sh")
-- pop rsi ** 0
-- pop rdx ** 0
+- pop rax  ** "/bin/sh" **
+- pop rsi  ** (address of bss) **
+- mov qword ptr [rsi], rax ** so the starting address of bss contains the /bin/sh **
+- pop rax,0x3b ** execve syscall **
+- pop rdi ** bss (pointer to "/bin/sh") **
+- pop rsi ** 0 **
+- pop rdx ** 0 **
 - syscall
 
 Here is the full [Exploit](./exploit.py) 

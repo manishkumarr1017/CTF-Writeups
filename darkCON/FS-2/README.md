@@ -54,7 +54,7 @@ void main(void)
 }
 ```
 
-So the structure of the binary is similar to the previous one.
+This code is similar to FS-1 with little differences. Let us examine those differences.
 
 
 
@@ -76,7 +76,7 @@ int init(EVP_PKEY_CTX *ctx)
 }
 ```
 
-Here we can see something intersting the name is global variable and the size of the name is 16 bytes just after the name the heap address is stored. So we can leak this by filling the whole 16 bytes to get the leak. So now we got the heap leak.
+Here we can see something intersting, The ```name``` is global variable and just after the ```name``` the heap address for the ```address``` is stored. So we can leak this by filling the whole 16 bytes to leak the address of the ```address```. So now we have a heap leak.
 
 ```
 void add(void)
@@ -105,7 +105,7 @@ void add(void)
 }
 ```
 
-Similar to the previous one.
+Similar to ```add()``` in FS-1 with no fast bin check.
 
 ```
 int getValidIndex(void)
@@ -130,7 +130,7 @@ int getValidIndex(void)
   exit(0);
 }
 ```
-Similar to the previous one but now we can allocate 16 chunks
+Unlike FS-1 we can allocate 16 chunks.
 
 ```
 int getValidSize(void)
@@ -181,7 +181,7 @@ void edit(void)
 }
 ```
 
-So this time the order_size has been stored so we don't have a full overflow. But the code ```*(undefined *)((long)(int)uVar2 + *(long *)(orders + (long)iVar1 * 8)) = 0;``` adds a null byte at the end so we have a null byte overflow.
+So this time the order_size has been stored so we don't have a full overflow. But the code ```*(undefined *)((long)(int)uVar2 + *(long *)(orders + (long)iVar1 * 8)) = 0;``` adds a null byte at the end leads to null byte overflow.
 
 ```
 void delete(void)
@@ -212,15 +212,15 @@ void delete(void)
 
 No vulnerabilities can be seen here. No UAF.
 
-There is no show function too So leaking libc might be difficult
+There is no show function too So leaking libc might be difficult.
 
 ## So the only vulnerability is null byte overflow we have to use this to get the shell
 
-## The attack vector is
+## The attack vector is:
 
-- First we have to perform house of einherjar combining with tcache poisoning attack and we have to perform the partial overwrite the ```main_arena``` to point to the stdout structure to get a chunk on the stdout structure.
+- First we have to perform house of einherjar combining with tcache poisoning attack for getting an arbitary write. But we don't have any leak besides heap so we partially overwrite the ```main_arena``` to point to the ```stdout``` structure to get a chunk on the stdout structure.
 - Then we will overwrite the stdout structure with the flags ```0xfbad1800``` and partailly overwrite ```write_base``` to ```\x00``` 
 
-- As we can't overwrite the hooks of malloc and free. We just have to hijack puts and get the shell
+- As we can't overwrite the hooks of malloc and free. We just have to hijack puts for getting the shell
 
 Here is the full writeup for hijacking [puts](https://faraz.faith/2020-10-13-FSOP-lazynote/)
